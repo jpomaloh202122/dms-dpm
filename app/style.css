@@ -21,3 +21,9 @@ th, td { padding: 10px; border-bottom: 1px solid #dce2e9; overflow-wrap: anywher
 article { background: #f7f9fc; overflow-wrap: anywhere; }
 article form { margin-top: 12px; }
 summary { cursor: pointer; }
+
+.totals { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+.totals a { display: grid; gap: 8px; padding: 16px; border: 1px solid #dce2e9; border-top: 3px solid #e8b64d; border-radius: 8px; text-decoration: none; }
+.totals strong { font-size: 2rem; color: #192638; }
+.totals a:hover { background: #f3f5f8; }
+:focus-visible { outline: 3px solid #b47705; outline-offset: 3px; }
