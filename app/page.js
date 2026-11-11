@@ -3,6 +3,15 @@ import { categories, db, reference, routes } from '../lib/db.mjs';
 import { advance, register } from './actions';
 import RegisterForm from './register-form';
 
+const offices = {
+  secretary: 'Secretary’s Office',
+  payroll: 'Payroll Office',
+};
+const owners = {
+  incoming: ['secretary', 'payroll', 'closed'],
+  outgoing: ['payroll', 'secretary', 'secretary', 'closed'],
+};
+
 const notices = {
   invalid: 'Check the document details and choose a file up to 10 MiB.',
   registered: 'Document registered.',
@@ -26,6 +35,23 @@ export default async function Home({ searchParams }) {
     SELECT d.id, d.title, c.direction, c.agency, c.stage
     FROM correspondence c JOIN documents d ON d.id = c.document_id ORDER BY d.id DESC
   `).all();
+  const office = Object.hasOwn(offices, params.office) ? params.office : '';
+  const routeFilter = Object.hasOwn(routes, params.route) ? params.route : '';
+  const state = ['pending', 'closed'].includes(params.state) ? params.state : '';
+  const query = typeof params.caseq === 'string' ? params.caseq.trim().slice(0, 200) : '';
+  const matchingCases = cases.filter((item) => {
+    const owner = owners[item.direction][item.stage];
+    const text = [reference(item.id), item.title, item.agency].join(' ').toLowerCase();
+    return (!office || owner === office) &&
+      (!routeFilter || item.direction === routeFilter) &&
+      (!state || (state === 'closed' ? owner === 'closed' : owner !== 'closed')) &&
+      text.includes(query.toLowerCase());
+  });
+  const totals = {
+    secretary: cases.filter((item) => owners[item.direction][item.stage] === 'secretary').length,
+    payroll: cases.filter((item) => owners[item.direction][item.stage] === 'payroll').length,
+    closed: cases.filter((item) => owners[item.direction][item.stage] === 'closed').length,
+  };
   const history = new Map(cases.map(({ id }) => [id, []]));
   for (const event of db().prepare('SELECT * FROM correspondence_events ORDER BY document_id, stage').all()) {
     history.get(event.document_id)?.push(event);
@@ -34,6 +60,15 @@ export default async function Home({ searchParams }) {
   return <>
     <nav aria-label="Sections"><a href="#register">Register</a><a href="#documents">Document register</a><a href="#correspondence">Correspondence queue</a></nav>
     {notice && <p role="status" className="notice">{notice}</p>}
+    <section aria-labelledby="overview"><h2 id="overview">Correspondence overview</h2>
+      <p>Totals cover all correspondence. Select a total to view its records.</p>
+      <div className="totals">
+        <a href="/#correspondence"><strong>{cases.length}</strong><span>All correspondence</span></a>
+        <a href="/?office=secretary&state=pending#correspondence"><strong>{totals.secretary}</strong><span>Pending Secretary’s Office</span></a>
+        <a href="/?office=payroll&state=pending#correspondence"><strong>{totals.payroll}</strong><span>Pending Payroll Office</span></a>
+        <a href="/?state=closed#correspondence"><strong>{totals.closed}</strong><span>Completed / dispatched</span></a>
+      </div>
+    </section>
     <section id="register"><h2>Register a document</h2><RegisterForm action={register} categories={categories} /></section>
     <section id="documents"><h2>Document register</h2>
       <form action="/#documents">
@@ -52,10 +87,21 @@ export default async function Home({ searchParams }) {
     </section>
     <section id="correspondence"><h2>Correspondence queue</h2>
       <p>Record each office handoff here. Record external dispatch after sending the letter separately.</p>
+      <form action="/#correspondence">
+        <label>Find correspondence<input name="caseq" defaultValue={query} maxLength={200} placeholder="Reference, title or agency" /></label>
+        <label>Pending with<select name="office" defaultValue={office}><option value="">Any office</option>
+          {Object.entries(offices).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
+        <label>Route<select name="route" defaultValue={routeFilter}><option value="">Both routes</option>
+          <option value="incoming">Incoming</option><option value="outgoing">Outgoing</option></select></label>
+        <label>Status<select name="state" defaultValue={state}><option value="">All statuses</option>
+          <option value="pending">Pending</option><option value="closed">Completed / dispatched</option></select></label>
+        <button>Filter queue</button><a href="/#correspondence">Clear queue filters</a>
+      </form>
+      <p>{matchingCases.length} matching correspondence records</p>
       <div className="queues">{Object.entries(routes).map(([direction, route]) => {
-        const records = cases.filter((item) => item.direction === direction);
+        const records = matchingCases.filter((item) => item.direction === direction);
         return <div key={direction}><h3>{direction === 'incoming' ? 'Incoming' : 'Outgoing'} · {records.length}</h3>
-          {records.length === 0 && <p>No correspondence registered.</p>}
+          {records.length === 0 && <p>No matching correspondence.</p>}
           {records.map((item) => <article key={item.id}>
             <h4>{reference(item.id)} · {item.title}</h4>
             <p>{direction === 'incoming' ? 'From' : 'To'} {item.agency}</p>
