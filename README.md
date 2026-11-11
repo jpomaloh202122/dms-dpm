@@ -37,3 +37,9 @@ To select another database location, set `DMS_DATABASE` to an absolute file path
 - Uploaded files are limited to 10 MiB and stored with their document records. Each routing step is recorded in the case history.
 
 The pilot uses one shared queue for local testing with sample documents.
+
+## AWS hosting
+
+See [AWS hosting instructions](docs/AWS_HOSTING.md) for the container build, ECR upload, EC2 setup, persistent storage, backups and Systems Manager access.
+
+The production container runs the standalone Next.js server on port 3000. Set DMS_IMAGE to an ECR image URI when using compose.yaml.

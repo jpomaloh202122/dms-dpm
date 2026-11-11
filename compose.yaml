@@ -1,0 +1,20 @@
+services:
+  web:
+    image: ${DMS_IMAGE:?Set DMS_IMAGE to your ECR image URI}
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3000:3000"
+    environment:
+      DMS_DATABASE: /data/dms.sqlite3
+    volumes:
+      - /srv/dms/data:/data
+      - /srv/dms/backups:/backups
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

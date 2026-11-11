@@ -1,0 +1,8 @@
+node_modules
+.next
+.git
+.env*
+*.sqlite3*
+**/*.sqlite3*
+backups
+.codex
