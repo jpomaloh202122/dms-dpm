@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>DPM DMS — Presentation PoC</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font:15px system-ui,sans-serif;color:#233047;background:#f2f5f9}aside{width:230px;background:#18283f;color:white;position:fixed;inset:0 auto 0 0;padding:28px 20px}aside h1{font-size:25px;margin:0}aside small{color:#e8bd63}nav{display:grid;gap:10px;margin-top:38px}nav a{padding:12px;color:white;text-decoration:none;border-radius:7px;background:#253a55}main{margin-left:230px;padding:30px;max-width:1550px}header{display:flex;justify-content:space-between;align-items:center;gap:15px}h2{margin:0 0 8px;font-size:27px}h3{margin-top:0}.muted{color:#607086}.badge{background:#fff0cb;color:#745000;padding:7px 12px;border-radius:20px;font-weight:600}.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin:25px 0}.card,section{background:white;border:1px solid #dce3ed;border-radius:12px;padding:22px;margin-bottom:20px}.card{text-align:left;cursor:pointer;color:#233047;border-top:4px solid #d6a641;margin:0}.card strong{display:block;font-size:32px;margin:8px 0}form,.filters,.toolbar{display:flex;gap:12px;flex-wrap:wrap;align-items:end}label{display:grid;gap:6px}input,select,button{font:inherit;padding:10px;border:1px solid #aab7c7;border-radius:7px;max-width:100%}button{cursor:pointer;background:#23456a;color:white}button.secondary{background:white;color:#23456a}.table{overflow:auto}table{width:100%;border-collapse:collapse;text-align:left;margin-top:18px}td,th{padding:13px;border-bottom:1px solid #e2e7ee}th{font-size:13px;color:#607086}td{min-width:110px}td:nth-child(2){min-width:220px}.route{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}.route span{padding:8px;background:#edf2f8;border-radius:7px}dialog{width:min(680px,95vw);border:1px solid #bdc8d6;border-radius:12px;padding:25px}dialog::backdrop{background:#18283f88}li{margin:12px 0}#status{min-height:24px;color:#235f46}footer{margin:20px 0;color:#607086}:focus-visible{outline:3px solid #bb850a;outline-offset:3px}@media(max-width:800px){aside{position:static;width:auto;padding:18px}nav{display:flex;flex-wrap:wrap;margin-top:15px}main{margin:0;padding:18px}header{align-items:start;flex-direction:column}}@media print{aside,.toolbar,form,.filters,button,dialog{display:none!important}main{margin:0;padding:0}.cards{grid-template-columns:repeat(4,1fr)}section{break-inside:avoid}.table{overflow:visible}body{background:white}td{min-width:0!important}}
+</style></head><body>
+<aside><small>DEPARTMENT OF PERSONNEL MANAGEMENT</small><h1>DPM DMS</h1><p>Correspondence management</p><nav><a href="#overview">Overview</a><a href="#register">Register correspondence</a><a href="#queue">Correspondence register</a><a href="#workflow">Workflow</a></nav></aside>
+<main><header id="overview"><div><h2>Correspondence dashboard</h2><span class="muted">Secretary’s Office &amp; Government Payroll Office</span></div><span class="badge">Management presentation · PoC</span></header>
+<p class="muted">All records are demonstration data. Changes are stored in this browser. Office selection demonstrates responsibility.</p>
+<div class="toolbar"><button id="print">Print presentation</button><button class="secondary" id="export">Export register CSV</button><button class="secondary" id="reset">Reset sample records</button></div>
+<div class="cards" id="cards"></div>
+<section id="workflow"><h3>Correspondence pathways</h3><p><b>Incoming correspondence</b></p><div class="route"><span>External agency</span> → <span>Secretary’s Office</span> → <span>Payroll Office action</span></div><p><b>Outgoing correspondence</b></p><div class="route"><span>Payroll prepares reply</span> → <span>Secretary’s Office clearance</span> → <span>External dispatch</span></div><p class="muted">Create a separate outgoing record for a response and enter the incoming DPM reference under Related reference.</p></section>
+<section id="register"><h3>Register correspondence</h3><form id="entry">
+<label>Direction<select name="direction"><option value="incoming">Incoming</option><option value="outgoing">Outgoing</option></select></label>
+<label>Subject<input name="subject" required maxlength="160"></label><label>External agency<input name="agency" required maxlength="120"></label>
+<label>Priority<select name="priority"><option>Normal</option><option>High</option><option>Urgent</option></select></label>
+<label>Related reference<input name="related" maxlength="40" placeholder="Optional DPM reference"></label><button>Register</button></form><p role="status" id="status"></p></section>
+<section id="queue"><h3>Correspondence register</h3><div class="filters">
+<label>Search<input id="search" placeholder="Reference, subject or agency"></label>
+<label>Responsibility<select id="office"><option value="">All offices</option><option value="secretary">Secretary’s Office</option><option value="payroll">Payroll Office</option><option value="closed">Completed / dispatched</option></select></label>
+<label>Route<select id="direction"><option value="">Both routes</option><option value="incoming">Incoming</option><option value="outgoing">Outgoing</option></select></label><button class="secondary" id="clear">Clear filters</button></div>
+<p id="count" class="muted"></p><div class="table"><table><thead><tr><th>Reference</th><th>Subject / agency</th><th>Route / priority</th><th>Current status</th><th>Actions</th></tr></thead><tbody id="rows"></tbody></table></div></section>
+<footer>HTML proof of concept · Manual dispatch recording · Browser-local demonstration storage</footer></main>
+<dialog id="details"><h3 id="detailTitle"></h3><p id="related"></p><ol id="history"></ol><button id="close">Close history</button></dialog>
+<script>
+'use strict';
+const flows={
+ incoming:{stages:['Received by Secretary’s Office','Referred to Payroll Office','Payroll action completed'],owners:['secretary','payroll','closed'],actions:['Refer to Payroll','Complete Payroll action']},
+ outgoing:{stages:['Prepared by Payroll Office','Submitted to Secretary’s Office','Cleared for dispatch','Dispatched externally'],owners:['payroll','secretary','secretary','closed'],actions:['Submit to Secretary','Clear for dispatch','Record dispatch']}
+};
+const key='dpm-dms-html-poc-v1';
+const $=id=>document.getElementById(id);
+function seed(){return [
+ ['incoming','Payroll reconciliation query','Sample Agency A','Urgent',0],
+ ['incoming','Employee records clarification','Sample Agency B','High',1],
+ ['incoming','Allowance review request','Sample Agency C','Normal',2],
+ ['outgoing','Response to reconciliation query','Sample Agency A','High',0],
+ ['outgoing','Payroll clarification response','Sample Agency B','Normal',1],
+ ['outgoing','Confirmation of completed action','Sample Agency C','Normal',3]
+].map((v,i)=>({id:i+1,direction:v[0],subject:v[1],agency:v[2],priority:v[3],stage:v[4],related:'',history:flows[v[0]].stages.slice(0,v[4]+1).map(label=>({label,date:'Sample timeline'}))}));}
+function valid(records){return Array.isArray(records)&&records.every(r=>Number.isSafeInteger(r.id)&&r.id>0&&Object.hasOwn(flows,r.direction)&&Number.isInteger(r.stage)&&r.stage>=0&&r.stage<flows[r.direction].stages.length&&['subject','agency','priority','related'].every(k=>typeof r[k]==='string')&&Array.isArray(r.history)&&r.history.every(h=>typeof h.label==='string'&&typeof h.date==='string'));}
+let records;
+try{const saved=JSON.parse(localStorage.getItem(key));records=valid(saved)?saved:seed();}catch{records=seed();}
+const ref=id=>'DPM-'+String(id).padStart(6,'0');
+const owner=r=>flows[r.direction].owners[r.stage];
+function save(){try{localStorage.setItem(key,JSON.stringify(records));}catch{$('status').textContent='Browser storage is unavailable. Changes remain available until this page closes.';}}
+function node(tag,text){const n=document.createElement(tag);n.textContent=text;return n;}
+function shown(){const q=$('search').value.trim().toLowerCase();return records.filter(r=>(!$('office').value||owner(r)===$('office').value)&&(!$('direction').value||r.direction===$('direction').value)&&[ref(r.id),r.subject,r.agency,r.related].join(' ').toLowerCase().includes(q));}
+function render(){
+ $('cards').replaceChildren();
+ for(const [label,value,filter] of [['All correspondence',records.length,''],['Pending Secretary’s Office',records.filter(r=>owner(r)==='secretary').length,'secretary'],['Pending Payroll Office',records.filter(r=>owner(r)==='payroll').length,'payroll'],['Completed / dispatched',records.filter(r=>owner(r)==='closed').length,'closed']]){
+  const b=node('button','');b.className='card';b.append(node('span',label),node('strong',value));b.onclick=()=>{$('office').value=filter;$('direction').value='';$('search').value='';render();$('queue').scrollIntoView({behavior:'smooth'});};$('cards').append(b);
+ }
+ $('rows').replaceChildren();const selected=shown();$('count').textContent=selected.length+' matching records';
+ for(const r of selected){
+  const tr=document.createElement('tr');tr.append(node('td',ref(r.id)));
+  const subject=node('td','');subject.append(node('b',r.subject),node('p',r.agency));tr.append(subject,node('td',r.direction+' · '+r.priority),node('td',flows[r.direction].stages[r.stage]));
+  const actions=node('td','');const history=node('button','History');history.className='secondary';history.onclick=()=>details(r);actions.append(history);
+  const next=flows[r.direction].actions[r.stage];
+  if(next){const b=node('button',next);b.style.marginTop='8px';b.onclick=()=>{r.stage++;r.history.push({label:flows[r.direction].stages[r.stage],date:new Date().toLocaleString()});save();render();};actions.append(b);}
+  tr.append(actions);$('rows').append(tr);
+ }
+ if(!selected.length){const tr=node('tr','');const td=node('td','No matching records.');td.colSpan=5;tr.append(td);$('rows').append(tr);}
+}
+function details(r){$('detailTitle').textContent=ref(r.id)+' · '+r.subject;$('related').textContent=r.related?'Related reference · '+r.related:'No related reference recorded';$('history').replaceChildren(...r.history.map(h=>node('li',h.label+' · '+h.date)));$('details').showModal();}
+$('entry').onsubmit=e=>{e.preventDefault();const f=new FormData(e.target);const subject=f.get('subject').trim(),agency=f.get('agency').trim();if(!subject||!agency)return;const direction=f.get('direction');records.unshift({id:Math.max(0,...records.map(r=>r.id))+1,direction,subject,agency,priority:f.get('priority'),related:f.get('related').trim(),stage:0,history:[{label:flows[direction].stages[0],date:new Date().toLocaleString()}]});$('status').textContent='Correspondence registered.';save();e.target.reset();$('office').value='';$('direction').value='';$('search').value='';render();};
+for(const id of ['search','office','direction'])$(id).addEventListener('input',render);
+$('clear').onclick=()=>{$('search').value='';$('office').value='';$('direction').value='';render();};
+$('close').onclick=()=>$('details').close();
+$('print').onclick=()=>window.print();
+$('reset').onclick=()=>{if(confirm('Replace browser demonstration records with the original sample set?')){records=seed();save();$('clear').click();$('status').textContent='Sample records restored.';}};
+$('export').onclick=()=>{const safe=v=>{let t=String(v);if(/^[=+@\-\t\r]/.test(t))t="'"+t;return '"'+t.replaceAll('"','""')+'"';};const data=[['Reference','Subject','Agency','Direction','Priority','Status','Related reference'],...shown().map(r=>[ref(r.id),r.subject,r.agency,r.direction,r.priority,flows[r.direction].stages[r.stage],r.related])];const url=URL.createObjectURL(new Blob(['\ufeff'+data.map(row=>row.map(safe).join(',')).join('\r\n')],{type:'text/csv;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download='DPM_DMS_Demo_Register.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
+render();
+</script></body></html>
